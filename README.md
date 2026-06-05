@@ -27,18 +27,18 @@
 
 ## Методы API
 
-### GET /mark_get_free — Проверка свободных кодов маркировки
+### POST /mark__free — Проверка свободных кодов маркировки
 
 Проверяет наличие свободных (незарезервированных) кодов маркировки в пуле для указанных штрихкодов товаров.
 
 **Метод:** `POST`  
-**URL:** `/mark_get_free`
+**URL:** `/mark__free`
 
 #### Request Body
 
 ```json
 {
-    "GetFreeHonestSigns": [
+    "FreeHonestSigns": [
         {
             "Barcode": "4067261336381",
             "Quantity": 1
@@ -53,9 +53,9 @@
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `GetFreeHonestSigns` | `array` | Список запрашиваемых позиций |
-| `GetFreeHonestSigns[].Barcode` | `string` | EAN/GTIN штрихкод товара |
-| `GetFreeHonestSigns[].Quantity` | `integer` | Требуемое количество кодов |
+| `FreeHonestSigns` | `array` | Список запрашиваемых позиций |
+| `FreeHonestSigns[].Barcode` | `string` | EAN/GTIN штрихкод товара |
+| `FreeHonestSigns[].Quantity` | `integer` | Требуемое количество кодов |
 
 #### Response Body — HTTP 200 OK
 
@@ -161,7 +161,7 @@
 
 ### POST /order_create — Создание запроса на эмиссию
 
-Создаёт заявку на выпуск новых кодов маркировки в ЧЗ. Вызывается, когда пул пуст (`Base64Marks: []` по запросу `/mark_get_free`). После создания заказа необходимо повторно проверять пул через `/mark_get_free` до появления кодов.
+Создаёт заявку на выпуск новых кодов маркировки в ЧЗ. Вызывается, когда пул пуст (`Base64Marks: []` по запросу `/mark__free`). После создания заказа необходимо повторно проверять пул через `/mark__free` до появления кодов.
 
 **Метод:** `POST`  
 **URL:** `/order_create`
@@ -229,13 +229,13 @@
 ## Общий сценарий работы
 
 ```
-1. Запрос на печать → /mark_get_free
+1. Запрос на печать → /mark__free
        │
        ├─ Base64Marks не пустой → /mark_commit (подтверждение печати)
        │
        └─ Base64Marks пустой   → /order_create (заказ эмиссии)
                                         │
-                                        └─ Polling /mark_get_free
+                                        └─ Polling /mark__free
                                                │
                                                └─ Коды появились → /mark_commit
 
