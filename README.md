@@ -116,10 +116,19 @@
 }
 ```
 
+
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `Base64Marks` | `array<string>` | Коды маркировки в формате Base64 (взаимоисключающе с `HonestSigns`) |
 | `HonestSigns` | `array<string>` | Коды маркировки в виде строк ЧЗ (взаимоисключающе с `Base64Marks`) |
+
+#### Response Body — HTTP 200 OK
+
+```json
+{
+    "result": "Статусы установлены"
+}
+```
 
 ---
 
@@ -156,6 +165,14 @@
 |------|-----|----------|
 | `Base64Marks` | `array<string>` | Коды маркировки в формате Base64 (взаимоисключающе с `HonestSigns`) |
 | `HonestSigns` | `array<string>` | Коды маркировки в виде строк ЧЗ (взаимоисключающе с `Base64Marks`) |
+
+#### Response Body — HTTP 200 OK
+
+```json
+{
+    "result": "Статусы установлены"
+}
+```
 
 ---
 
@@ -226,6 +243,165 @@
 
 ---
 
+### POST /order_status — Запрос состояния документов эмиссии
+
+Возвращает текущий статус обработки документов эмиссии по их идентификаторам. Используется для отслеживания готовности заказов после вызова `/order_create`.
+
+**Метод:** `POST`  
+**URL:** `/order_status`
+
+#### Request Body
+
+```json
+{
+    "EmissionStatusRequest": [
+        "4EC137D0-5FC4-44A6-A4FE-38410B36FBBC",
+        "9D5225A8-CD9E-44C0-9652-A7F102BE26B0",
+        "432D6B4E-44A8-45EB-BC3D-6E89CEB8EF74",
+        "50FACA94-9376-497D-8C18-97662D62C386"
+    ]
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `EmissionStatusRequest` | `array<string (UUID)>` | Список идентификаторов документов эмиссии |
+
+#### Response Body — HTTP 200 OK
+
+```json
+{
+    "EmissionDocumentStatus": [
+        {
+            "DocumentId": "4EC137D0-5FC4-44A6-A4FE-38410B36FBBC",
+            "Status": "InProgress",
+            "Error": ""
+        },
+        {
+            "DocumentId": "432D6B4E-44A8-45EB-BC3D-6E89CEB8EF74",
+            "Status": "InProgress"
+        },
+        {
+            "DocumentId": "9D5225A8-CD9E-44C0-9652-A7F102BE26B0",
+            "Status": "Ready"
+        },
+        {
+            "DocumentId": "50FACA94-9376-497D-8C18-97662D62C386",
+            "Status": "Ready"
+        }
+    ]
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `EmissionDocumentStatus` | `array` | Список статусов по каждому документу |
+| `EmissionDocumentStatus[].DocumentId` | `string (UUID)` | Идентификатор документа эмиссии |
+| `EmissionDocumentStatus[].Status` | `string` | Текущий статус документа (см. таблицу статусов ниже) |
+| `EmissionDocumentStatus[].Error` | `string` | Описание ошибки; присутствует только при наличии ошибки, может отсутствовать в ответе |
+
+#### Значения поля `Status`
+
+| Статус | Описание |
+|--------|----------|
+| `InProgress` | Документ эмиссии обрабатывается; коды маркировки ещё не готовы |
+| `Ready` | Документ обработан; коды маркировки доступны для получения через `/mark_get` |
+
+> **Логика работы:** после создания заказа через `/order_create` необходимо периодически опрашивать `/order_status` до перехода документов в статус `Ready`, после чего можно запрашивать коды через `/mark_get`.
+
+---
+
+### POST /mark_get — Получение кодов маркировки по документам эмиссии
+
+Возвращает коды маркировки (в формате Base64), сгруппированные по документам эмиссии. Вызывается после того, как `/order_status` вернул статус `Ready`.
+
+**Метод:** `POST`  
+**URL:** `/mark_get`
+
+#### Request Body
+
+```json
+{
+    "EmissionDocuments": [
+        "57512593-a4ed-4410-a5dc-4721c1396463",
+        "97d16f3f-be16-4a1f-80ba-bf1c32a2c990",
+        "6dc3bb5a-5b7c-4c12-a427-dad1996ac19e"
+    ]
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `EmissionDocuments` | `array<string (UUID)>` | Список идентификаторов документов эмиссии со статусом `Ready` |
+
+#### Response Body — HTTP 200 OK
+
+```json
+{
+    "EmissionDocuments": [
+        {
+            "EmissionDocument": "57512593-a4ed-4410-a5dc-4721c1396463",
+            "HonestSigns": [
+                {
+                    "Barcode": "4011694590223",
+                    "Base64Mark": "MDEwNDAxMTY5NDU5MDIyMzIxNT0pRmVKJTNTPi9uZx05MUVFMTEdOTJJWG51VWVza0pQYmFmZVc2RWVpR2JTZ2tUT3M5Q3VxS2RLWGc5bGlWWnBzPQ=="
+                },
+                {
+                    "Barcode": "4607940693451",
+                    "Base64Mark": "MDEwNDYwNzk0MDY5MzQ1MTIxNVJqZVBNZDZZVkkrSR05MUVFMTEdOTJyeGRtS0tHclNMNXpMaXVHQ3dscHkwcGY3MzRHTUF2Q2ZRV21kYVNQWjRZPQ=="
+                },
+                {
+                    "Barcode": "4607940693468",
+                    "Base64Mark": "MDEwNDYwNzk0MDY5MzQ2ODIxNWZhLmZYJSdMWXMxRR05MUVFMTEdOTJzc0puVnlucFVacUxvSlZDVXJkMmh0eXpqK1NoUkc1RXdoczlmOHlUdFZFPQ=="
+                },
+                {
+                    "Barcode": "4607940693475",
+                    "Base64Mark": "MDEwNDYwNzk0MDY5MzQ3NTIxNWNveCg8RGdPYWpTeh05MUVFMTEdOTJ6OFJUTW8vb21xSHowcmtvbzUvVU1kamJzMlRPd3hzMXA3VjJVT09Ndk9JPQ=="
+                }
+            ]
+        },
+        {
+            "EmissionDocument": "97d16f3f-be16-4a1f-80ba-bf1c32a2c990",
+            "HonestSigns": [
+                {
+                    "Barcode": "4059995291371",
+                    "Base64Mark": "MDEwNDA1OTk5NTI5MTM3MTIxNUdyP0k/VXNsUk9UPB05MUVFMTEdOTJMeFdNb1hPMmw3VHhMejJpTXpLRnBCN25IVEhZQWhwajAzcWpyeWhCNjRJPQ=="
+                },
+                {
+                    "Barcode": "4607940695592",
+                    "Base64Mark": "MDEwNDYwNzk0MDY5NTU5MjIxNW5IWlBLaDlRS3NwRh05MUVFMTEdOTJOOUprbEtOK2dXQkdPOVJ6d283T0ZTeCttNllNQjh0dkJwTThyRGlnUFFjPQ=="
+                },
+                {
+                    "Barcode": "4607940695608",
+                    "Base64Mark": "MDEwNDYwNzk0MDY5NTYwODIxNVJlaXVUUTQ7VVhiNx05MUVFMTEdOTJmdnFHRURUbGYvZ0ZmNmNaNHJsZHNsYmx2QTFsYlg0Q1NLTlVMQVRDQU00PQ=="
+                }
+            ]
+        },
+        {
+            "EmissionDocument": "6dc3bb5a-5b7c-4c12-a427-dad1996ac19e",
+            "HonestSigns": [
+                {
+                    "Barcode": "4067261242644",
+                    "Base64Mark": "MDEwNDA2NzI2MTI0MjY0NDIxNW5UO0RBUTZhRyJTKB05MUVFMTEdOTIrczk0bFR4eWR0RXVSSzhzRlpZZm1GVXZuaWNOWEgxeEh2bjRnem9RUFlnPQ=="
+                }
+            ]
+        }
+    ]
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `EmissionDocuments` | `array` | Список документов с кодами маркировки |
+| `EmissionDocuments[].EmissionDocument` | `string (UUID)` | Идентификатор документа эмиссии |
+| `EmissionDocuments[].HonestSigns` | `array` | Список кодов маркировки для данного документа |
+| `EmissionDocuments[].HonestSigns[].Barcode` | `string` | EAN/GTIN штрихкод товара |
+| `EmissionDocuments[].HonestSigns[].Base64Mark` | `string` | Код маркировки в формате Base64 |
+
+> **Важно:** полученные коды необходимо подтвердить через `/mark_commit` после успешной печати. Неиспользованные коды следует вернуть в пул через `/mark_release`.
+
+---
+
 ## Общий сценарий работы
 
 ```
@@ -235,9 +411,13 @@
        │
        └─ Base64Marks пустой   → /order_create (заказ эмиссии)
                                         │
-                                        └─ Polling /mark_free
+                                        └─ Polling /order_status
                                                │
-                                               └─ Коды появились → /mark_commit
+                                               ├─ Status: InProgress → повторить запрос
+                                               │
+                                               └─ Status: Ready → /mark_get (получение кодов)
+                                                                        │
+                                                                        └─ /mark_commit (подтверждение печати)
 
 Если код маркировки не нужен → /mark_release (возврат в пул)
 ```
@@ -246,6 +426,6 @@
 
 ## Примечания
 
-- Аутентификация: схема **HTTP Basic Auth** (`Authorization: Basic <base64(login:password)>`). Используются учётные данные, выданные ранее для доступа к сервису маркировки.
-- GTIN в ответе `/order_create` возвращается в 14-значном формате с ведущим `0`, тогда как в запросе передаётся без него — это ожидаемое поведение.
+- Аутентификация: схема **HTTP Basic Auth** (`Authorization: Basic <base64(login:password)>`). Используются учётные данные, выданные ранее для доступа к сервису 1C.
+
 - В тестовом контуре заказы на эмиссию не передаются в ЧЗ; для полного тестирования цикла эмиссии следует использовать продуктовое окружение.
